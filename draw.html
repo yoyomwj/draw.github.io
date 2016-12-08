@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" href="drawStyle.css"/>
+</head>
+<body>
+<div id="maskLayer"></div>
+<div id="show">
+    <span id="close">X</span>
+    <span id="prev"><</span>
+    <span id="next">></span>
+</div>
+<div id="box">
+    <div id="option">
+        <span id="lineStyle">
+            <div id="lineWidth">
+                <span></span>
+            </div>
+        </span>
+        <div id="color"></div>
+        <div id="drawing"></div>
+        <div id="tool">
+            <span id="pen"></span>
+            <span id="crayon"></span>
+        </div>
+        <div id="earese"></div>
+        <input type="button" value="保 存" id="save"/>
+        <input type="button" value="清空内容" id="delete"/>
+    </div>
+    <div id="depict">
+        <em><strong>线条宽度：</strong></em>
+        <div id="line"></div>
+        <em style="position:absolute;top:0;left: 265px;"><strong>颜&nbsp;&nbsp;&nbsp;色</strong></em>
+        <em style="position:absolute;top:0;left: 487px;"><strong>形&nbsp;&nbsp;&nbsp;状</strong></em>
+    </div>
+    <canvas id="canvas" width="800" height="500" style="background: white" ></canvas>
+    <canvas id="myCanvas" width="800" height="500" style="top:-504px"></canvas>
+</div>
+<div id="left"></div>
+<div id="rigth"></div>
+<div id="paint">
+    <div id="txt">我的作品</div>
+    <div id="small">
+        <div id="big">
+            <!--<span class="oDraw"></span>-->
+        </div>
+    </div>
+</div>
+<script src="Polygon.js"></script>
+<script>
+    //////////////////////////////////////////////////////     获取元素    /////////////////////////////////////////////////////
+
+    function oID(name){
+        return document.getElementById(name);
+    }
+    var maskLayer = oID("maskLayer");
+    var show = oID("show");
+    var close = oID("close");
+    var prev = oID("prev");
+    var next = oID("next");
+    var lineWidth = oID("lineWidth");
+    var lineSpan = lineWidth.getElementsByTagName("span")[0];
+    var color = oID("color");
+    var drawing = oID("drawing");
+    var box = oID("box");
+    var line = oID("line");
+    var pen = oID("pen");
+    var crayon = oID("crayon");
+    var clear = oID("delete");
+    var earese = oID("earese");
+    var back = oID("back");
+    var save = oID("save");
+    var txt = oID("txt");
+    var paint = oID("paint");
+    var big = oID("big");
+    var oSpan = big.getElementsByTagName("span");
+
+    maskLayer.style.width = window.innerWidth + "px";
+    maskLayer.style.height = window.innerHeight + "px";
+
+    ////////////////////////////////////////////////////////////////////      工具栏内容及事件     ///////////////////////////////////////////////////////////////////
+    //颜色包
+    var colorArr = ["black","lightslategrey","maroon","red","darkorange","yellow","green","dodgerblue","royalblue","mediumorchid","white","gainsboro","chocolate","pink","gold","palegoldenrod","greenyellow","powderblue","lightsteelblue","plum"];
+    //添加色表
+    var colorStr =  "";
+    for(var i=0;i<colorArr.length;i++){
+        colorStr += "<span class='colorActive' style='background: "+colorArr[i]+"' id='"+colorArr[i]+"'></span>";
+    }
+    color.innerHTML = colorStr;
+
+    //图形包
+    var drawArr = ["-2px -2px","-42px -2px","-62px -2px","-122px -2px","-2px -22px","-22px -22px","-42px -22px","-62px -22px","-22px -42px","-41px -42px","-61px -42px","-81px -22px"];
+    var drawName = ["beeline","round","rect","regularTriangle","RightTriangle","rhomb","pentagon","hexagon","starFour","starFive","starSix","arrows"];
+    //添加图形表
+    var drawStr = "";
+    for(var i=0;i<drawArr.length;i++){
+        drawStr += "<span class='drawActive' style='background-position: "+drawArr[i]+"' id='"+drawName[i]+"'></span>";
+    }
+    drawing.innerHTML = drawStr;
+
+    //lineWidth设置
+    lineSpan.onmousedown = function(ev){
+        var disX = ev.clientX - 225 - this.offsetLeft;
+        document.onmousemove = function(ev){
+            var l = ev.clientX -225-disX;
+            var w = Math.round((parseInt(l+10))/13);
+            if(l < 0){l = 0;}
+            if(l > 130){l = 130;}
+            if(w<1){
+                w = 1
+            }else if(w<3){
+                line.style.top = "-9px";
+            }else if(w==3 || w==4) {
+                line.style.top = "-10px";
+            }else if(w==5 || w==6){
+                line.style.top = "-11px";
+            }else if(w==7 || w==8){
+                line.style.top = "-12px";
+            }else if(w>10){
+                w = 10;
+            }else if(w>8){
+                line.style.top = "-13px";
+            }
+            lineSpan.style.left = l +"px";
+            line.style.borderTop = w + "px solid darkgreen" ;
+        };
+        document.onmouseup = function(){
+            this.onmousemove = this.onmouseup = null;
+        };
+        return false;
+    };
+
+    //获取颜色及图形元素
+    var oColor = color.getElementsByTagName("span");
+    var oDrawing = drawing.getElementsByTagName("span");
+
+    //设置颜色
+    var colour = "black";
+    for(var i=0;i<oColor.length;i++){
+        oColor[i].onclick = function(){
+            for(var i=0;i<oColor.length;i++){
+                oColor[i].style.border = "";
+            }
+            this.style.border = "1px solid black";
+            return colour = this.id;
+        }
+    }
+
+    //设置图形
+    var chart = "";
+    for(var i=0;i<oDrawing.length;i++){
+        oDrawing[i].onclick = function(){
+            borderNull(oDrawing,pen,earese,"crosshair",crayon);
+            this.style.border = "1px solid black";
+            return chart = this.id;
+        }
+    }
+
+    //点击铅笔事件
+    pen.onclick = function(){
+        borderNull(oDrawing,earese,crayon,"crosshair");
+        this.style.border = "1px solid black";
+        chart = "";
+    };
+
+    //橡皮点击事件
+    earese.onclick = function(){
+        borderNull(oDrawing,pen,crayon,"pointer");
+        this.style.border = "1px solid black";
+        chart = "earese";
+    };
+    //蜡笔点击事件
+    crayon.onclick = function(){
+        borderNull(oDrawing,earese,pen,"crosshair");
+        this.style.border = "1px solid black";
+        chart = "crayon";
+    };
+
+    //边框清除函数
+    function borderNull(obj1,obj2,obj3,style,obj4){
+        canvas.style.cursor = style;
+        for(var i=0;i<obj1.length;i++){
+            obj1[i].style.border = "";
+        }
+        obj2.style.border = "";
+        obj3.style.border = "";
+        if(obj4){
+            obj4.style.border = "";
+        }
+    }
+
+    //canvas全部清除事件
+    clear.onclick = function(){
+        cvs1.clear(ctx1);
+    };
+
+    //作品事件
+    paint.onmouseenter = function(){
+        var right = window.innerWidth - (paint.offsetLeft + paint.offsetWidth);
+        var timer = setInterval(function(){
+            if(right < 168){
+                right = 168;
+                clearInterval(timer);
+            }
+            right -= 4;
+            paint.style.right = right + "px";
+        },20);
+        for(var i=0;i<oSpan.length;i++){
+            oSpan[i].index = i;
+            oSpan[i].onclick = function(){
+                maskLayer.style.display = "block";
+                show.style.display = "block";
+                show.style.backgroundImage = "url("+image[this.index]+")";
+                show.style.cursor = "pointer";
+                close.onclick = function(){
+                    maskLayer.style.display = "none";
+                    show.style.display = "none";
+                };
+                var n = this.index;
+                prev.onclick = function(){
+                    n--;
+                    if(n < 0){
+                        n = image.length-1;
+                    }
+                    show.style.backgroundImage = "url("+image[n]+")";
+                };
+                next.onclick = function(){
+                    n++;
+                    if(n > image.length-1){
+                        n = 0;
+                    }
+                    show.style.backgroundImage = "url("+image[n]+")";
+                };
+            }
+        }
+    };
+    paint.onmouseleave = function(){
+        var right = window.innerWidth - (paint.offsetLeft + paint.offsetWidth)
+        var timer = setInterval(function(){
+            if(right > 280){
+                right = 280;
+                clearInterval(timer);
+            }
+            right += 4;
+            paint.style.right = right + "px";
+        },20);
+    };
+
+    ///////////////////////////////////////////////////       设置canvas       //////////////////////////////////////////////////////
+
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+    var canvas1 = document.getElementById("canvas");
+    var ctx1 = canvas1.getContext("2d");
+
+    ////////////////////////////////////////////////////    canvas构造函数    //////////////////////////////////////////////////////////
+
+    //canvas效果构造函数
+    var Canvas = function(obj){
+        this.obj = obj;
+    };
+    //绘图开始及清除当前画布内容
+    Canvas.prototype.beginClear = function(){
+        ctx.beginPath();
+        ctx.clearRect(0,0,800,600);
+    };
+    //清除指定画布内容
+    Canvas.prototype.clear = function(context){
+        context.clearRect(0,0,800,600)
+    };
+    //常用颜色及线宽
+    Canvas.prototype.usua = function(){
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = Math.round((parseInt(lineSpan.style.left+10))/13);
+    };
+    //鼠标按下
+    Canvas.prototype.down = function(ev){
+        this.x = ev.offsetX;
+        this.y = ev.offsetY;
+        this.lastX = this.x;
+        this.lastY = this.y;
+        if(!chart){
+            ctx.beginPath();
+            ctx.moveTo(this.x,this.y);
+        }
+    };
+    //鼠标移动
+    Canvas.prototype.move = function(ev){
+        this.disX = ev.offsetX;
+        this.disY = ev.offsetY;
+        this.W = this.disX - this.x;
+        this.H = this.disY - this.y;
+        this.xr = this.W/2;
+        this.yr = this.H/2;
+        this.centerX = this.xr + this.x;
+        this.centerY = this.yr + this.y;
+        this.quarter = this.H/4 + this.y;
+        this.threeQuarter = this.H/4*3 + this.y
+    };
+
+    //鼠标抬起
+    Canvas.prototype.up = function(){
+        ctx.closePath();
+        ctx1.drawImage(canvas,0,0);
+        ctx.clearRect(0,0,800,500);
+        document.onmousemove = document.onmouseup = null;
+    };
+    //书写
+    Canvas.prototype.draw = function(){
+        ctx.lineTo(this.disX,this.disY);
+        ctx.stroke();
+    };
+    //画线
+    Canvas.prototype.beeline = function(){
+        this.beginClear();
+        ctx.moveTo(this.x,this.y);
+        ctx.lineTo(this.disX,this.disY);
+        ctx.stroke();
+    };
+    //画矩形
+    Canvas.prototype.rect = function(){
+        this.beginClear();
+        ctx.strokeRect(this.x,this.y,this.W,this.H)
+    };
+    //画等腰三角形
+    Canvas.prototype.regularTriangle = function(){
+        this.beginClear();
+        ctx.moveTo(this.centerX,this.y);
+        ctx.lineTo(this.disX,this.disY);
+        ctx.lineTo(this.x,this.disY);
+        ctx.closePath();
+        ctx.stroke();
+    };
+    //画直角三角形
+    Canvas.prototype.RightTriangle = function(){
+        this.beginClear();
+        ctx.moveTo(this.x,this.y);
+        ctx.lineTo(this.x,this.disY);
+        ctx.lineTo(this.disX,this.disY);
+        ctx.closePath();
+        ctx.stroke();
+    };
+    //画菱形
+    Canvas.prototype.rhomb = function(){
+        this.beginClear();
+        ctx.moveTo(this.centerX,this.y);
+        ctx.lineTo(this.disX,this.centerY);
+        ctx.lineTo(this.centerX,this.disY);
+        ctx.lineTo(this.x,this.centerY);
+        ctx.closePath();
+        ctx.stroke();
+    };
+    //图案中心点设置
+    Canvas.prototype.center = function(){
+        this.r = this.xr > this.yr ? this.yr : this.xr;
+        this.nowX = this.centerX>this.r?this.r+this.x:this.centerX;
+        this.nowY = this.centerY>this.r?this.r+this.y:this.centerY;
+        return this;
+    };
+    //画圆
+    Canvas.prototype.round = function(){
+        var xr = Math.abs(this.xr);
+        var yr = Math.abs(this.yr);
+        ctx.beginPath();
+        this.beginClear();
+        var r = xr>yr?yr:xr;
+        var nowX = "";
+        if(this.disX - this.x>0){
+            nowX = this.centerX>r?r+this.x:this.centerX;
+        }else{
+            nowX = this.centerX>r?-r+this.x:this.centerX;
+        }
+        var nowY = "";
+        if(this.disY - this.y>0){
+            nowY = this.centerY>r?r+this.y:this.centerY;
+        }else{
+            nowY = this.centerY>r?-r+this.y:this.centerY;
+        }
+        ctx.arc(nowX,nowY,r,0,Math.PI*2);
+        ctx.stroke();
+    };
+    //五边形
+    Canvas.prototype.pentagon = function(){
+        this.center();
+        var p = new Polygon({
+            x: this.nowX,
+            y: this.nowY,
+            r: this.r,
+            sides: 5,
+            sc: colour
+        });
+        this.clear(ctx);
+        p.stroke(ctx);
+    };
+    //六边形
+    Canvas.prototype.hexagon = function(){
+        this.center();
+        var p = new Polygon({
+            x: this.nowX,
+            y: this.nowY,
+            r: this.r,
+            sides: 6,
+            sc: colour
+        });
+        this.clear(ctx);
+        p.stroke(ctx);
+    };
+    //四角星
+    Canvas.prototype.starFour = function(){
+        this.start(4);
+        ctx.stroke();
+    };
+    //五角星
+    Canvas.prototype.starFive = function(){
+        this.start(5);
+        ctx.stroke();
+    };
+    //六角形
+    Canvas.prototype.starSix = function(){
+        this.start(6);
+        ctx.stroke();
+    };
+    //箭头
+    Canvas.prototype.arrows = function(){
+        this.beginClear();
+        ctx.moveTo(this.x,this.quarter);
+        ctx.lineTo(this.centerX,this.quarter);
+        ctx.lineTo(this.centerX,this.y);
+        ctx.lineTo(this.disX,this.centerY);
+        ctx.lineTo(this.centerX,this.disY);
+        ctx.lineTo(this.centerX,this.threeQuarter);
+        ctx.lineTo(this.x,this.threeQuarter);
+        ctx.closePath();
+        ctx.stroke();
+    };
+
+    //生成n角星
+    Canvas.prototype.start = function(n){
+        this.beginClear();
+        this.center();
+        ctx.beginPath();
+        for(var i=0; i<n; i++){
+            ctx.lineTo(this.nowX+Math.cos((90 - 360/n + 360/n * i)*Math.PI / 180) * this.r,this.nowY-Math.sin((90 - 360/n + 360/n * i)*Math.PI / 180) * this.r);
+            ctx.lineTo(this.nowX+Math.cos(((90 - 360/n/2) + 360/n * i)*Math.PI / 180) * (this.r/2),this.nowY-Math.sin(((90 - 360/n/2) + 360/n * i)*Math.PI / 180) * (this.r/2));
+        }
+        ctx.closePath();
+    };
+    //橡皮擦
+    Canvas.prototype.earese = function(r,r1){
+        this.earese1(this.lastX,this.lastY,r);
+        this.drawEarese(this.disX,this.disY,r1);
+        this.lastX = this.disX;
+        this.lastY = this.disY;
+    };
+    //蜡笔
+    Canvas.prototype.crayon = function(r,r1){
+        this.earese1(this.lastX,this.lastY,r);
+        this.drawEarese(this.disX,this.disY,r1);
+        this.lastX = this.disX;
+        this.lastY = this.disY;
+    };
+    //移动后的橡皮擦或蜡笔
+    Canvas.prototype.drawEarese = function(x,y,r){
+        ctx1.save();
+        ctx1.beginPath();
+        if(chart == "earese"){
+            ctx1.arc(x,y,r-2,0,Math.PI*2);
+            ctx1.stroke();
+            ctx1.clip();
+        }
+        if(chart == "crayon"){
+            ctx1.fillStyle = colour;
+            ctx1.arc(x,y,r-2,0,Math.PI*2);
+            ctx1.fill();
+        }
+        ctx1.restore();
+
+    };
+    //移动前的橡皮擦或蜡笔
+    Canvas.prototype.earese1 = function(x,y,r){
+        ctx1.save();
+        this.lastEarese(x,y,r);
+        if(chart == "earese"){
+            ctx1.clearRect(0,0,800,500);
+        }
+        ctx1.restore();
+    };
+    Canvas.prototype.lastEarese = function(x,y,r){
+        ctx1.beginPath();
+        if(chart == "earese"){
+            ctx1.arc(x,y,r,0,Math.PI*2);
+            ctx1.clip();
+        }
+        if(chart == "crayon"){
+            ctx1.fillStyle = colour;
+            ctx1.arc(x,y,r,0,Math.PI*2);
+            ctx1.fill();
+        }
+
+    };
+
+    ///////////////////////////////////////////////////////////      canvas事件区     ///////////////////////////////////////////////////
+    //canvas鼠标事件
+    var cvs1 = new Canvas(canvas);
+    canvas.onmousedown = function(ev){
+        cvs1.down(ev);
+        cvs1.usua();
+        var r = Math.round((parseInt(lineSpan.style.left+10))/13)+5;
+        document.onmousemove = function(ev){
+            cvs1.move(ev);
+            switch(chart){
+                case "":
+                    cvs1.draw();
+                    break;
+                case "beeline":
+                    cvs1.beeline();
+                    break;
+                case "round":
+                    cvs1.round();
+                    break;
+                case "rect":
+                    cvs1.rect();
+                    break;
+                case "regularTriangle":
+                    cvs1.regularTriangle();
+                    break;
+                case "RightTriangle":
+                    cvs1.RightTriangle();
+                    break;
+                case "rhomb":
+                    cvs1.rhomb();
+                    break;
+                case "pentagon":
+                    cvs1.pentagon();
+                    break;
+                case "hexagon":
+                    cvs1.hexagon();
+                    break;
+                case "starFour":
+                    cvs1.starFour();
+                    break;
+                case "starFive":
+                    cvs1.starFive();
+                    break;
+                case "starSix":
+                    cvs1.starSix();
+                    break;
+                case "arrows":
+                    cvs1.arrows();
+                    break;
+                case "earese":
+                    cvs1.earese(r,r);
+                    break;
+                case "crayon":
+                    cvs1.crayon(r,r);
+                    break;
+            }
+        };
+        document.onmouseup = function(){
+            if(chart == "earese"){
+                cvs1.earese(r,2);
+            }
+            cvs1.up();
+        };
+        return false;
+    };
+
+    //保存作品
+    var image = [];
+    local();
+    function local(){
+        if(JSON.parse(localStorage.getItem("img"))){
+            image = JSON.parse(localStorage.getItem("img"));
+            var img = JSON.parse(localStorage.getItem("img"));
+            var str = "";
+            for(var i=0;i<img.length;i++){
+                str += "<span class='oDraw'style='background-image:url("+img[i]+")'></span>"
+            }
+            big.innerHTML = str;
+        }
+    }
+
+    //保存事件
+    save.onclick = function(){
+        image.push(canvas1.toDataURL("image/png"));
+        localStorage.setItem("img",JSON.stringify(image));
+        local();
+        ctx1.clearRect(0,0,800,600);
+    };
+
+
+
+</script>
+</body>
+</html>
